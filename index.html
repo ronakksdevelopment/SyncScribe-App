@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncScribe | P2P Real-Time Text</title>
+    <title>SyncNotes | P2P Real-Time Text</title>
     
+    <!-- Favicon -->
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/4438/4438839.png" type="image/png">
+
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
@@ -34,10 +37,11 @@
                     },
                     colors: {
                         brand: {
-                            400: '#22d3ee', // Cyan
-                            500: '#06b6d4',
-                            600: '#0891b2',
-                            purple: '#a855f7'
+                            400: '#f87171', // Red 400
+                            500: '#ef4444', // Red 500
+                            600: '#dc2626', // Red 600
+                            accent: '#fbbf24', // Amber/Yellow 400
+                            paper: '#fef3c7' // Light Beige/Yellow 50
                         }
                     },
                     animation: {
@@ -69,7 +73,7 @@
 
     <style>
         body {
-            background-color: #0f172a;
+            background-color: #0f172a; /* Keeping slate dark for sleek professional contrast */
             color: #f8fafc;
             overflow-x: hidden;
         }
@@ -92,12 +96,12 @@
 
         .glass-input:focus {
             outline: none;
-            border-color: #22d3ee;
-            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+            border-color: #ef4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
             background: rgba(0, 0, 0, 0.4);
         }
 
-        /* Custom Scrollbar */
+        /* Custom Scrollbar - Warm Theme */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -111,7 +115,7 @@
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(34, 211, 238, 0.5);
+            background: rgba(248, 113, 113, 0.5); /* Red hover */
         }
 
         /* View Transitions */
@@ -139,7 +143,7 @@
             background: rgba(0,0,0,0.5);
         }
 
-        /* Animated Background Orbs */
+        /* Animated Background Orbs - Red & Amber Theme */
         .bg-orb {
             position: absolute;
             border-radius: 50%;
@@ -147,9 +151,9 @@
             z-index: -1;
             opacity: 0.5;
         }
-        .orb-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: #312e81; animation: blob 15s infinite alternate; }
-        .orb-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: #083344; animation: blob 12s infinite alternate-reverse; }
-        .orb-3 { top: 40%; left: 40%; width: 30vw; height: 30vw; background: #4c1d95; animation: blob 18s infinite alternate; }
+        .orb-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: #7f1d1d; animation: blob 15s infinite alternate; }
+        .orb-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: #78350f; animation: blob 12s infinite alternate-reverse; }
+        .orb-3 { top: 40%; left: 40%; width: 30vw; height: 30vw; background: #450a0a; animation: blob 18s infinite alternate; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative antialiased selection:bg-brand-500 selection:text-white">
@@ -172,10 +176,10 @@
     <!-- Header -->
     <header class="w-full p-6 flex justify-between items-center z-10 animate-fade-in">
         <div class="flex items-center gap-3 cursor-pointer" onclick="app.disconnect()">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-purple flex items-center justify-center shadow-lg shadow-brand-500/30">
-                <i class="fas fa-bolt text-white text-lg"></i>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-accent flex items-center justify-center shadow-lg shadow-brand-500/30 p-2">
+                <img src="https://cdn-icons-png.flaticon.com/512/4438/4438839.png" alt="SyncNotes Logo" class="w-full h-full object-contain filter drop-shadow-md">
             </div>
-            <h1 class="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Sync<span class="text-brand-400">Scribe</span></h1>
+            <h1 class="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Sync<span class="text-brand-400">Notes</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div id="connection-status" class="hidden items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm border-yellow-500/30 text-yellow-400">
@@ -186,7 +190,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-grow flex items-center justify-center p-4 z-10 w-full max-w-6xl mx-auto">
+    <main class="flex-grow flex flex-col items-center justify-center p-4 z-10 w-full max-w-6xl mx-auto">
         
         <!-- View: HOME (Join or Create) -->
         <section id="view-home" class="view-section active flex-col items-center w-full max-w-4xl gap-8 animate-slide-up">
@@ -195,7 +199,7 @@
                     <i class="fas fa-lock text-[10px]"></i> 100% P2P Private
                 </div>
                 <h2 class="text-4xl md:text-5xl font-bold mb-4">Direct Device Sync</h2>
-                <p class="text-gray-400 text-lg max-w-xl mx-auto">Connect devices directly. Text is transferred Peer-to-Peer and vanishes when you close the tab. No servers, no traces.</p>
+                <p class="text-gray-400 text-lg max-w-xl mx-auto">Connect devices directly. Notes are transferred Peer-to-Peer and vanish when you close the tab. No servers, no traces.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
@@ -207,15 +211,15 @@
                     </div>
                     <h3 class="text-2xl font-semibold mb-2 relative z-10">Host Session</h3>
                     <p class="text-gray-400 mb-8 text-sm relative z-10">Generate a unique code and QR to host a direct connection from this device.</p>
-                    <button id="btn-create" onclick="app.createSession()" class="mt-auto w-full py-4 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white font-semibold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all transform hover:scale-[1.02] relative z-10">
+                    <button id="btn-create" onclick="app.createSession()" class="mt-auto w-full py-4 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white font-semibold shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all transform hover:scale-[1.02] relative z-10">
                         Start Hosting
                     </button>
                 </div>
 
                 <!-- Join Session Card -->
                 <div class="glass-panel rounded-3xl p-8 flex flex-col items-center text-center group hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-b from-brand-purple/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div class="w-16 h-16 rounded-2xl bg-brand-purple/20 text-brand-purple flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform relative z-10">
+                    <div class="absolute inset-0 bg-gradient-to-b from-brand-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="w-16 h-16 rounded-2xl bg-brand-accent/20 text-brand-accent flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform relative z-10">
                         <i class="fas fa-link"></i>
                     </div>
                     <h3 class="text-2xl font-semibold mb-2 relative z-10">Join Session</h3>
@@ -223,7 +227,7 @@
                     
                     <div class="w-full flex flex-col gap-3 mt-auto relative z-10">
                         <div class="relative w-full">
-                            <input type="text" id="join-code-input" placeholder="Enter 6-digit code" maxlength="6" class="w-full glass-input py-4 pl-6 pr-12 rounded-xl text-center font-mono text-xl tracking-[0.2em] uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-sm">
+                            <input type="text" id="join-code-input" placeholder="Enter 6-digit code" maxlength="6" class="w-full glass-input py-4 pl-6 pr-12 rounded-xl text-center font-mono text-xl tracking-[0.2em] uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-sm focus:border-brand-accent">
                             <button id="btn-join" onclick="app.joinWithCode()" class="absolute right-2 top-2 bottom-2 aspect-square rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                                 <i class="fas fa-arrow-right"></i>
                             </button>
@@ -233,7 +237,7 @@
                             <span class="text-xs text-gray-500 font-medium uppercase">or</span>
                             <div class="h-px bg-white/10 flex-grow"></div>
                         </div>
-                        <button onclick="app.openScanner()" class="w-full py-4 rounded-xl glass-panel border border-brand-purple/30 text-brand-purple hover:bg-brand-purple/10 font-semibold transition-all flex items-center justify-center gap-2">
+                        <button onclick="app.openScanner()" class="w-full py-4 rounded-xl glass-panel border border-brand-accent/30 text-brand-accent hover:bg-brand-accent/10 font-semibold transition-all flex items-center justify-center gap-2">
                             <i class="fas fa-qrcode"></i> Scan QR Code
                         </button>
                     </div>
@@ -244,7 +248,7 @@
             <div id="recent-sessions-container" class="w-full hidden flex-col gap-4 mt-8">
                 <div class="flex justify-between items-end pl-2 pr-2">
                     <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Peers</h4>
-                    <button onclick="app.clearHistory()" class="text-xs text-red-400 hover:text-red-300 transition-colors">Clear</button>
+                    <button onclick="app.clearHistory()" class="text-xs text-brand-400 hover:text-brand-500 transition-colors">Clear</button>
                 </div>
                 <div id="recent-sessions-list" class="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                     <!-- Populated by JS -->
@@ -267,7 +271,7 @@
                     </div>
                 </div>
                 
-                <p class="text-sm text-gray-400 text-center">Point your camera at the SyncScribe QR code displayed on the host device.</p>
+                <p class="text-sm text-gray-400 text-center">Point your camera at the SyncNotes QR code displayed on the host device.</p>
             </div>
         </section>
 
@@ -284,7 +288,7 @@
                     <p class="text-gray-400 mb-8 max-w-sm">Share this code or let the other device scan the QR to establish a direct P2P link.</p>
                     
                     <div class="bg-black/40 border border-white/10 p-6 rounded-2xl flex flex-col items-center gap-4">
-                        <div id="waiting-qrcode" class="bg-white p-3 rounded-xl"></div>
+                        <div id="waiting-qrcode" class="bg-brand-paper p-3 rounded-xl shadow-inner"></div>
                         <div class="flex items-center gap-3 bg-brand-500/20 border border-brand-500/30 px-5 py-3 rounded-xl cursor-pointer hover:bg-brand-500/30 transition-colors" onclick="app.copySessionCode()">
                             <span id="waiting-session-code" class="font-mono text-3xl font-bold tracking-widest text-brand-400">------</span>
                             <i class="far fa-copy text-gray-300 ml-2"></i>
@@ -304,7 +308,7 @@
                             <span id="display-session-code" class="font-mono text-xl font-bold tracking-widest text-brand-400">------</span>
                         </div>
                         
-                        <button onclick="app.toggleEditorQR()" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-brand-purple hover:bg-white/10 transition-colors" title="Show QR Code">
+                        <button onclick="app.toggleEditorQR()" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-brand-accent hover:bg-white/10 transition-colors" title="Show QR Code">
                             <i class="fas fa-qrcode"></i>
                         </button>
                     </div>
@@ -324,14 +328,14 @@
 
                 <!-- Floating QR Overlay -->
                 <div id="editor-qr-overlay" class="absolute top-20 left-4 z-40 hidden">
-                    <div class="glass-panel rounded-2xl p-4 shadow-2xl border-brand-purple/30 animate-fade-in flex flex-col items-center">
-                        <div id="editor-qrcode" class="bg-white p-2 rounded-xl"></div>
+                    <div class="glass-panel rounded-2xl p-4 shadow-2xl border-brand-accent/30 animate-fade-in flex flex-col items-center">
+                        <div id="editor-qrcode" class="bg-brand-paper p-2 rounded-xl"></div>
                         <span class="text-xs text-gray-400 mt-3 font-medium">Scan to join</span>
                     </div>
                 </div>
 
                 <!-- Text Area -->
-                <textarea id="sync-textarea" class="w-full flex-grow bg-transparent text-gray-100 p-6 sm:p-8 resize-none focus:outline-none text-lg leading-relaxed placeholder:text-gray-600 font-sans custom-scrollbar relative z-20" placeholder="Direct P2P connection established. Type or paste here..."></textarea>
+                <textarea id="sync-textarea" class="w-full flex-grow bg-transparent text-gray-100 p-6 sm:p-8 resize-none focus:outline-none text-lg leading-relaxed placeholder:text-gray-600 font-sans custom-scrollbar relative z-20" placeholder="Direct P2P connection established. Type or paste your notes here..."></textarea>
                 
                 <!-- Typing indicator -->
                 <div class="h-8 px-6 flex items-center bg-black/20 text-xs text-brand-400/70 font-medium tracking-wide border-t border-white/5 relative z-20">
@@ -341,6 +345,13 @@
         </section>
 
     </main>
+
+    <!-- Footer Developer Mention -->
+    <footer class="w-full p-4 text-center z-10 animate-fade-in mt-auto">
+        <p class="text-xs text-gray-400 font-medium tracking-wide flex items-center justify-center gap-2">
+            Developed With <span class="text-brand-400 animate-pulse text-sm">💓</span> By Rajdeep Singh & Gemini AI
+        </p>
+    </footer>
 
     <!-- Application Logic -->
     <script>
@@ -478,7 +489,7 @@
                 this.els.btnCreate.disabled = true;
 
                 // Create Peer ID prefixed to avoid global collisions on free server
-                this.peer = new Peer(`syncscribe-app-${code}`, { debug: 1 });
+                this.peer = new Peer(`syncnotes-app-${code}`, { debug: 1 });
 
                 this.peer.on('open', (id) => {
                     this.els.btnCreate.innerHTML = originalText;
@@ -537,7 +548,7 @@
 
                 this.peer.on('open', (id) => {
                     // Connect to the specific Host ID
-                    this.conn = this.peer.connect(`syncscribe-app-${code}`);
+                    this.conn = this.peer.connect(`syncnotes-app-${code}`);
                     
                     this.conn.on('open', () => {
                         this.els.btnJoin.innerHTML = originalText;
@@ -721,7 +732,7 @@
                     width: 160,
                     height: 160,
                     colorDark : "#0f172a", 
-                    colorLight : "#ffffff", 
+                    colorLight : "#fef3c7", // Match brand paper theme
                     correctLevel : QRCode.CorrectLevel.M
                 };
 
@@ -763,7 +774,7 @@
                                     this.joinSessionCore(parsedCode.toUpperCase());
                                 });
                             } else {
-                                this.showToast("Invalid SyncScribe QR code.", "error");
+                                this.showToast("Invalid SyncNotes QR code.", "error");
                             }
                         },
                         (errorMessage) => { /* ignore routine camera errors */ }
@@ -791,7 +802,7 @@
             saveToHistory(sessionId) {
                 let history = [];
                 try {
-                    const stored = localStorage.getItem('syncScribe_p2p_history');
+                    const stored = localStorage.getItem('syncNotes_p2p_history');
                     if (stored) history = JSON.parse(stored);
                 } catch(e) {}
                 
@@ -799,7 +810,7 @@
                 history.unshift({ id: sessionId, time: Date.now() });
                 if (history.length > 5) history.pop();
                 
-                localStorage.setItem('syncScribe_p2p_history', JSON.stringify(history));
+                localStorage.setItem('syncNotes_p2p_history', JSON.stringify(history));
                 this.renderHistory();
             },
 
@@ -810,7 +821,7 @@
             renderHistory() {
                 let history = [];
                 try {
-                    const stored = localStorage.getItem('syncScribe_p2p_history');
+                    const stored = localStorage.getItem('syncNotes_p2p_history');
                     if (stored) history = JSON.parse(stored);
                 } catch(e) {}
 
@@ -831,7 +842,7 @@
             },
 
             clearHistory() {
-                localStorage.removeItem('syncScribe_p2p_history');
+                localStorage.removeItem('syncNotes_p2p_history');
                 this.renderHistory();
                 this.showToast("History cleared", "success");
             },
@@ -846,11 +857,11 @@
                     this.els.toastIcon.className = 'fas fa-check-circle text-green-400';
                     this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-green-500/50';
                 } else if (type === 'error') {
-                    this.els.toastIcon.className = 'fas fa-exclamation-circle text-red-400';
-                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-red-500/50';
+                    this.els.toastIcon.className = 'fas fa-exclamation-circle text-brand-400';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-brand-500/50';
                 } else if (type === 'warning') {
-                    this.els.toastIcon.className = 'fas fa-exclamation-triangle text-yellow-400';
-                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-yellow-500/50';
+                    this.els.toastIcon.className = 'fas fa-exclamation-triangle text-brand-accent';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-brand-accent/50';
                 } else {
                     this.els.toastIcon.className = 'fas fa-info-circle text-brand-400';
                     this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-brand-500/50';
