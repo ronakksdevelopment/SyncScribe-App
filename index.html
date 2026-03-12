@@ -199,13 +199,26 @@
     <main class="flex-grow flex flex-col items-center justify-center p-4 z-10 w-full max-w-5xl mx-auto">
         
         <!-- View: HOME (Join or Create) -->
-        <section id="view-home" class="view-section active flex-col items-center w-full gap-10 animate-slide-up">
-            <div class="text-center">
+        <section id="view-home" class="view-section active flex-col items-center w-full gap-8 animate-slide-up">
+            
+            <div class="text-center mb-2">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold tracking-wider uppercase mb-5">
                     <i class="fas fa-shield-alt text-[10px]"></i> Serverless P2P Security
                 </div>
-                <h2 class="text-4xl md:text-6xl font-extrabold mb-5 tracking-tight">Direct Device Sync</h2>
-                <p class="text-slate-400 text-lg max-w-2xl mx-auto font-light leading-relaxed">Connect multiple devices directly. Notes are transferred securely via Peer-to-Peer and vanish the moment you close the tab.</p>
+                <h2 class="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight">Direct Device Sync</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto font-light leading-relaxed">Connect multiple devices directly. Notes are transferred securely and vanish the moment you close the tab.</p>
+            </div>
+
+            <!-- MANDATORY NICKNAME INPUT -->
+            <div class="w-full max-w-md mx-auto">
+                <div class="glass-panel p-2.5 rounded-2xl flex items-center gap-3 border border-brand-400/40 bg-brand-400/5 shadow-[0_0_20px_rgba(239,68,68,0.15)] relative overflow-hidden group focus-within:border-brand-400 transition-colors">
+                    <div class="absolute inset-0 bg-gradient-to-r from-brand-400/10 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+                    <div class="w-12 h-12 rounded-xl bg-brand-400/20 text-brand-400 flex items-center justify-center relative z-10 shrink-0">
+                        <i class="fas fa-user-astronaut text-xl"></i>
+                    </div>
+                    <input type="text" id="nickname-input" placeholder="ENTER NICKNAME" maxlength="10" class="w-full bg-transparent border-none text-white font-bold text-lg tracking-[0.2em] placeholder:text-brand-400/40 focus:outline-none uppercase relative z-10" oninput="this.value = this.value.toUpperCase()">
+                </div>
+                <p class="text-center text-xs text-brand-400/70 mt-2 font-medium uppercase tracking-widest"><i class="fas fa-info-circle"></i> Required to join or host</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
@@ -249,7 +262,7 @@
             </div>
 
             <!-- Recent Sessions -->
-            <div id="recent-sessions-container" class="w-full max-w-4xl hidden flex-col gap-3 mt-4">
+            <div id="recent-sessions-container" class="w-full max-w-4xl hidden flex-col gap-3 mt-2">
                 <div class="flex justify-between items-end px-1">
                     <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Recent Connections</h4>
                     <button onclick="app.clearHistory()" class="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium">Clear History</button>
@@ -288,7 +301,7 @@
                         <i class="fas fa-wifi text-4xl text-brand-400"></i>
                     </div>
                     <h3 class="text-3xl font-bold mb-3 text-white tracking-tight">Ready to Sync</h3>
-                    <p class="text-slate-400 mb-8 max-w-md text-lg font-light">Share your 5-digit code or let others scan the QR to establish a direct link.</p>
+                    <p class="text-slate-400 mb-8 max-w-md text-lg font-light">Share your 5-digit code or let others scan the QR to establish a direct link. This page will close automatically when someone joins.</p>
                     
                     <div class="bg-white/5 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-6 shadow-xl">
                         <div id="waiting-qrcode" class="bg-brand-paper p-4 rounded-2xl shadow-inner"></div>
@@ -358,13 +371,13 @@
 
     <!-- Peers Management Modal -->
     <div id="peers-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-brand-dark/80 backdrop-blur-sm transition-opacity duration-300 opacity-0">
-        <div class="glass-panel p-6 rounded-3xl w-full max-w-sm m-4 transform scale-95 transition-transform duration-300 bg-slate-900/50">
-            <div class="flex justify-between items-center mb-5">
-                <h3 class="text-xl font-bold text-white">Connected Devices</h3>
+        <div class="glass-panel p-6 rounded-3xl w-full max-w-sm m-4 transform scale-95 transition-transform duration-300 bg-slate-900/50 border border-white/10 shadow-2xl">
+            <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-4">
+                <h3 class="text-xl font-bold text-white"><i class="fas fa-users text-brand-400 mr-2"></i> Connected Users</h3>
                 <span id="modal-peer-count" class="bg-brand-500/20 text-brand-400 px-3 py-1 rounded-full text-xs font-bold border border-brand-500/20">0</span>
             </div>
             
-            <div id="peers-list" class="space-y-2 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+            <div id="peers-list" class="space-y-3 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                 <!-- Peer items injected here -->
             </div>
             
@@ -393,7 +406,8 @@
             isHost: false,
             isRemoteUpdate: false,
             typingTimeout: null,
-            connectionTimeout: null, // Guard against infinite loading
+            connectionTimeout: null, 
+            userName: 'GUEST',
             
             // Premium public STUN servers for 100% reliable WebRTC connections over NAT
             peerConfig: {
@@ -416,6 +430,7 @@
                 toast: document.getElementById('toast'),
                 toastIcon: document.getElementById('toast-icon'),
                 toastMsg: document.getElementById('toast-message'),
+                nicknameInput: document.getElementById('nickname-input'),
                 joinInput: document.getElementById('join-code-input'),
                 displayCode: document.getElementById('display-session-code'),
                 waitingCode: document.getElementById('waiting-session-code'),
@@ -456,13 +471,29 @@
                 return window.location.href.split('?')[0];
             },
 
+            // Validate Nickname Function
+            validateName() {
+                const name = this.els.nicknameInput.value.trim().toUpperCase();
+                if (!name) {
+                    this.showToast("⚠️ Nickname is required!", "warning");
+                    this.els.nicknameInput.focus();
+                    return false;
+                }
+                this.userName = name;
+                return true;
+            },
+
             // Check if URL contains ?join=CODE
             checkUrlForInvite() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const joinCode = urlParams.get('join');
                 if (joinCode && /^\d{5}$/.test(joinCode)) {
                     this.els.joinInput.value = joinCode.toUpperCase();
-                    setTimeout(() => this.joinWithCode(), 500);
+                    // Alert user to enter name before joining
+                    setTimeout(() => {
+                        this.showToast("Please enter a Nickname to join.", "info");
+                        this.els.nicknameInput.focus();
+                    }, 800);
                 }
             },
 
@@ -518,6 +549,7 @@
                         this.els.statusLabel.textContent = "Linked to Host";
                     }
                     
+                    // Crucial fix: Remove overlay when at least 1 peer connects
                     this.els.waitingOverlay.classList.add('hidden');
                     this.els.waitingOverlay.classList.remove('flex');
                     this.els.textarea.disabled = false;
@@ -535,6 +567,8 @@
 
             // ======= P2P HOSTING (PeerJS) =======
             createSession() {
+                if (!this.validateName()) return;
+
                 const code = this.generateCode();
                 this.currentSessionId = code;
                 this.isHost = true;
@@ -563,7 +597,62 @@
 
                 // When ANY client joins the host
                 this.peer.on('connection', (conn) => {
-                    this.setupConnectionHooks(conn);
+                    let isOpened = false;
+
+                    const handleOpen = (name) => {
+                        if (isOpened) return; // Prevent double execution
+                        isOpened = true;
+                        
+                        // Grab nickname from payload or metadata
+                        conn.customName = name || (conn.metadata && conn.metadata.name) || 'GUEST';
+                        this.connections.set(conn.peer, conn);
+                        
+                        // Force UI Update to clear popup immediately 
+                        this.updateConnectionUI();
+                        this.showToast(`${conn.customName} joined!`, "success");
+                    };
+
+                    // PeerJS 'open' event can sometimes fail to fire for the host. 
+                    // We attach it, but also use 'data' as a fallback failsafe.
+                    conn.on('open', () => {
+                        handleOpen(conn.metadata?.name);
+                    });
+
+                    conn.on('data', (payload) => {
+                        // BUG FIX: If data arrives, connection is DEFINITELY open. 
+                        // Force handshake if 'open' event was missed by PeerJS.
+                        if (!isOpened) {
+                            handleOpen(payload.name || conn.metadata?.name);
+                        }
+
+                        if (payload.type === 'text-sync') {
+                            this.applyRemoteText(payload.data);
+                            
+                            // Relay to all OTHER clients instantly
+                            this.connections.forEach((c, id) => {
+                                if (id !== conn.peer && c.open) {
+                                    c.send({ type: 'text-sync', data: payload.data });
+                                }
+                            });
+                        } else if (payload.type === 'request-sync') {
+                            // Send current text to the newly joined peer
+                            conn.send({ type: 'text-sync', data: this.els.textarea.value });
+                        }
+                    });
+
+                    conn.on('close', () => {
+                        const name = conn.customName || 'A user';
+                        this.connections.delete(conn.peer);
+                        if (this.isHost) {
+                            this.showToast(`${name} left.`, "info");
+                            this.updateConnectionUI();
+                        }
+                    });
+
+                    conn.on('error', (err) => {
+                        this.connections.delete(conn.peer);
+                        this.updateConnectionUI();
+                    });
                 });
 
                 this.peer.on('error', (err) => {
@@ -582,6 +671,8 @@
 
             // ======= P2P JOINING (PeerJS) =======
             joinWithCode() {
+                if (!this.validateName()) return;
+
                 const code = this.els.joinInput.value.trim();
                 // Regex check to ensure exactly 5 numerical digits
                 if (!/^\d{5}$/.test(code)) {
@@ -615,11 +706,50 @@
                 this.peer = new Peer(this.peerConfig);
 
                 this.peer.on('open', (id) => {
-                    // Connect to the specific Host ID
+                    // Connect to the specific Host ID, passing nickname in metadata
                     const hostId = `syncnotes-net-${code}`;
-                    const conn = this.peer.connect(hostId, { reliable: true });
+                    const conn = this.peer.connect(hostId, { 
+                        reliable: true,
+                        metadata: { name: this.userName }
+                    });
                     
-                    this.setupConnectionHooks(conn);
+                    let isOpened = false;
+
+                    conn.on('open', () => {
+                        if (isOpened) return;
+                        isOpened = true;
+                        
+                        clearTimeout(this.connectionTimeout); // Success, clear timeout
+                        
+                        this.connections.set(conn.peer, conn);
+                        
+                        this.els.btnJoin.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                        this.els.btnJoin.disabled = false;
+                        this.els.displayCode.textContent = this.currentSessionId;
+                        this.generateQRs(this.currentSessionId);
+                        this.saveToHistory(this.currentSessionId);
+                        
+                        this.navigate('editor');
+                        this.updateConnectionUI();
+                        this.showToast("Connected to Workspace!", "success");
+                        
+                        // Fire ping immediately with name to wake up Host UI
+                        conn.send({ type: 'request-sync', name: this.userName });
+                    });
+
+                    conn.on('data', (payload) => {
+                        if (payload.type === 'text-sync') {
+                            this.applyRemoteText(payload.data);
+                        } else if (payload.type === 'kicked') {
+                            this.showToast("Host disconnected you from the session.", "error");
+                            this.disconnect();
+                        }
+                    });
+
+                    conn.on('close', () => {
+                        this.showToast("Host ended the session.", "warning");
+                        this.disconnect();
+                    });
 
                     conn.on('error', (err) => {
                          clearTimeout(this.connectionTimeout);
@@ -640,95 +770,6 @@
                         this.showToast("Network error trying to join.", "error");
                     }
                     this.disconnect();
-                });
-            },
-
-            // ======= SHARED P2P HOOKS (Handles Multiple Conns & Race Conditions) =======
-            setupConnectionHooks(conn) {
-                let isOpened = false;
-
-                const handleConnectionOpened = () => {
-                    if (isOpened) return; // Prevent double firing
-                    isOpened = true;
-
-                    clearTimeout(this.connectionTimeout); // Clear safety timeout on success
-                    
-                    // Add to active connections map
-                    this.connections.set(conn.peer, conn);
-                    
-                    if (this.isHost) {
-                        this.showToast("New device joined!", "success");
-                        this.updateConnectionUI();
-                        // Send current text to the newly joined peer
-                        conn.send({ type: 'text-sync', data: this.els.textarea.value });
-                    } else {
-                        // We are a client that just successfully connected
-                        this.els.btnJoin.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                        this.els.btnJoin.disabled = false;
-                        this.els.displayCode.textContent = this.currentSessionId;
-                        this.generateQRs(this.currentSessionId);
-                        this.saveToHistory(this.currentSessionId);
-                        
-                        this.navigate('editor');
-                        this.updateConnectionUI();
-                        this.showToast("Connected to Workspace!", "success");
-                        // Request initial sync
-                        conn.send({ type: 'request-sync' });
-                    }
-                };
-
-                // PeerJS 'open' event can sometimes race and fire before the listener is attached,
-                // or if reliable: true is set, it might already be open.
-                if (conn.open) {
-                    handleConnectionOpened();
-                } else {
-                    conn.on('open', handleConnectionOpened);
-                }
-
-                conn.on('data', (payload) => {
-                    // BUG FIX: Failsafe. If we receive data, the connection is definitely open.
-                    // This fixes the issue where the Host gets stuck on the Waiting Screen because 
-                    // the WebRTC channel established silently in the background.
-                    if (!isOpened) {
-                        handleConnectionOpened();
-                    }
-
-                    if (payload.type === 'text-sync') {
-                        this.applyRemoteText(payload.data);
-                        
-                        // If Host receives text from a client, Relay to all OTHER clients instantly
-                        if (this.isHost) {
-                            this.connections.forEach((c, id) => {
-                                if (id !== conn.peer && c.open) {
-                                    c.send({ type: 'text-sync', data: payload.data });
-                                }
-                            });
-                        }
-                    } else if (payload.type === 'request-sync' && this.isHost) {
-                        conn.send({ type: 'text-sync', data: this.els.textarea.value });
-                    } else if (payload.type === 'kicked' && !this.isHost) {
-                        this.showToast("Host disconnected you from the session.", "error");
-                        this.disconnect();
-                    }
-                });
-
-                conn.on('close', () => {
-                    this.connections.delete(conn.peer);
-                    
-                    if (this.isHost) {
-                        this.showToast("A device disconnected.", "info");
-                        this.updateConnectionUI();
-                    } else {
-                        // Client lost the host
-                        this.showToast("Host ended the session.", "warning");
-                        this.disconnect();
-                    }
-                });
-
-                conn.on('error', (err) => {
-                    console.error("Connection Error:", err);
-                    this.connections.delete(conn.peer);
-                    this.updateConnectionUI();
                 });
             },
 
@@ -767,7 +808,7 @@
                 this.els.charCount.textContent = `${this.els.textarea.value.length} chars`;
                 
                 try {
-                    // Automatically force the cursor/blinking line to the very end 
+                    // BUG FIX: Automatically force the cursor/blinking line to the very end 
                     // of the document when receiving an update, so writing is seamless.
                     const textLength = this.els.textarea.value.length;
                     this.els.textarea.focus(); 
@@ -875,6 +916,8 @@
 
             // QR Scanner
             openScanner() {
+                if (!this.validateName()) return;
+
                 this.navigate('scanner');
                 
                 setTimeout(() => {
@@ -961,25 +1004,22 @@
                 }
 
                 let html = '';
-                let index = 1;
                 this.connections.forEach((c, peerId) => {
-                    // Generate a readable name from ID
-                    const readableName = `Device-${peerId.substring(peerId.length - 4).toUpperCase()}`;
+                    const readableName = c.customName || 'GUEST';
                     
                     html += `
                     <div class="flex items-center justify-between bg-black/40 border border-white/5 p-3 rounded-xl">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-brand-accent/20 text-brand-accent flex items-center justify-center text-xs">
-                                <i class="fas fa-mobile-alt"></i>
+                            <div class="w-8 h-8 rounded-full bg-brand-accent/20 text-brand-accent flex items-center justify-center text-xs shrink-0">
+                                <i class="fas fa-user"></i>
                             </div>
-                            <span class="text-sm font-medium text-slate-200">${readableName}</span>
+                            <span class="text-sm font-bold text-slate-200 tracking-wide">${readableName}</span>
                         </div>
                         ${this.isHost ? `
-                        <button onclick="app.kickPeer('${peerId}')" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-red-500/10 active:scale-95">
+                        <button onclick="app.kickPeer('${peerId}')" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-red-500/10 active:scale-95 shrink-0 font-medium">
                             Kick
-                        </button>` : `<span class="text-xs text-green-400">Active</span>`}
+                        </button>` : `<span class="text-xs text-green-400 font-medium shrink-0">Active</span>`}
                     </div>`;
-                    index++;
                 });
 
                 this.els.peersList.innerHTML = html;
@@ -995,7 +1035,7 @@
                         c.close();
                         this.connections.delete(peerId);
                         this.updateConnectionUI();
-                        this.showToast("Device kicked.", "info");
+                        this.showToast(`${c.customName || 'User'} kicked.`, "info");
                     }, 200);
                 }
             },
