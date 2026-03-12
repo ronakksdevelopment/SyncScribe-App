@@ -352,6 +352,24 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // ==============================================================================
+        // 🚀 FIREBASE SETUP FOR GITHUB HOSTING
+        // ==============================================================================
+        // To host this yourself, create a free Firebase project and replace `null` below 
+        // with your Firebase config object. 
+        // 
+        // Example:
+        // const GITHUB_FIREBASE_CONFIG = {
+        //   apiKey: "AIzaSyC...",
+        //   authDomain: "your-project.firebaseapp.com",
+        //   projectId: "your-project",
+        //   storageBucket: "your-project.firebasestorage.app",
+        //   messagingSenderId: "123456789",
+        //   appId: "1:123456789:web:abcde"
+        // };
+        const GITHUB_FIREBASE_CONFIG = null;
+        // ==============================================================================
+
         // Application Logic Encapsulation
         const app = {
             db: null,
@@ -434,14 +452,20 @@
             async initFirebase() {
                 let fbConfig = null;
                 
-                // 1. Try injected config (Canvas environment)
-                try {
-                    if (typeof __firebase_config !== 'undefined') {
-                        fbConfig = JSON.parse(__firebase_config);
-                    }
-                } catch(e) { console.warn("Failed to parse injected firebase config"); }
+                // 1. Try hardcoded config for GitHub hosting
+                if (GITHUB_FIREBASE_CONFIG && GITHUB_FIREBASE_CONFIG.apiKey) {
+                    fbConfig = GITHUB_FIREBASE_CONFIG;
+                }
+                // 2. Try injected config (Canvas environment)
+                else {
+                    try {
+                        if (typeof __firebase_config !== 'undefined') {
+                            fbConfig = JSON.parse(__firebase_config);
+                        }
+                    } catch(e) { console.warn("Failed to parse injected firebase config"); }
+                }
 
-                // 2. Try user-provided config from localStorage
+                // 3. Try user-provided config from localStorage
                 if (!fbConfig) {
                     try {
                         const localCfg = localStorage.getItem('syncScribe_fbConfig');
@@ -452,7 +476,7 @@
                 if (!fbConfig) {
                     this.showToast("No database config found. Real-time sync disabled.", "warning");
                     this.els.textarea.disabled = true;
-                    this.els.textarea.placeholder = "Database not connected. Please go to Settings and add Firebase config if hosting externally.";
+                    this.els.textarea.placeholder = "Database not connected. Please add your Firebase configuration in the code or settings to enable real-time sync.";
                     return;
                 }
 
@@ -519,7 +543,7 @@
                     
                 } catch (error) {
                     console.error("Create session error:", error);
-                    this.showToast("Failed to create session.", "error");
+                    this.showToast("Failed to create session. Check Database Rules.", "error");
                 }
             },
 
@@ -570,11 +594,11 @@
                         this.els.syncStatusText.innerHTML = `<i class="fas fa-check-double text-green-400 mr-2"></i> Synced`;
                     } else {
                         // Document doesn't exist, create it (lazy creation for joiners)
-                        setDoc(ref, { text: this.els.textarea.value, lastUpdated: serverTimestamp() });
+                        setDoc(ref, { text: this.els.textarea.value, lastUpdated: serverTimestamp() }).catch(e => console.error(e));
                     }
                 }, (error) => {
                     console.error("Sync error:", error);
-                    this.showToast("Connection lost.", "error");
+                    this.showToast("Connection lost or permission denied.", "error");
                 });
 
                 this.els.joinInput.value = '';
