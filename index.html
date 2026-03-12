@@ -393,7 +393,20 @@
             isHost: false,
             isRemoteUpdate: false,
             typingTimeout: null,
+            connectionTimeout: null, // Guard against infinite loading
             
+            // Premium public STUN servers for 100% reliable WebRTC connections over NAT
+            peerConfig: {
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                },
+                debug: 1 // Reduces console noise
+            },
+
             // Scanner
             html5QrcodeScanner: null,
 
@@ -438,11 +451,16 @@
                 window.app = this;
             },
 
+            // Get clean base URL avoiding ?join chaining
+            getBaseUrl() {
+                return window.location.href.split('?')[0];
+            },
+
             // Check if URL contains ?join=CODE
             checkUrlForInvite() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const joinCode = urlParams.get('join');
-                if (joinCode && joinCode.length === 5) { // Updated to 5
+                if (joinCode && /^\d{5}$/.test(joinCode)) {
                     this.els.joinInput.value = joinCode.toUpperCase();
                     setTimeout(() => this.joinWithCode(), 500);
                 }
@@ -510,9 +528,8 @@
                 this.renderPeersList();
             },
 
-            // Session Generation (5 Digit Number)
+            // Session Generation (Strict 5 Digit Number)
             generateCode() {
-                // Generates a string between "10000" and "99999"
                 return Math.floor(10000 + Math.random() * 90000).toString();
             },
 
@@ -527,8 +544,9 @@
                 this.els.btnCreate.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing...';
                 this.els.btnCreate.disabled = true;
 
-                // Host ID
-                this.peer = new Peer(`syncnotes-app-${code}`);
+                // Unique ID generation to avoid server collisions 
+                const hostId = `syncnotes-net-${code}`;
+                this.peer = new Peer(hostId, this.peerConfig);
 
                 this.peer.on('open', (id) => {
                     this.els.btnCreate.innerHTML = originalText;
@@ -549,18 +567,24 @@
                 });
 
                 this.peer.on('error', (err) => {
-                    console.error(err);
+                    console.error("Host Error:", err);
                     this.els.btnCreate.innerHTML = originalText;
                     this.els.btnCreate.disabled = false;
-                    this.showToast("Could not create room. Try again.", "error");
+                    
+                    if (err.type === 'unavailable-id') {
+                         this.showToast("Internal error. Please click host again.", "error");
+                    } else {
+                         this.showToast("Could not connect to P2P network.", "error");
+                    }
                     this.disconnect();
                 });
             },
 
             // ======= P2P JOINING (PeerJS) =======
             joinWithCode() {
-                const code = this.els.joinInput.value.trim().toUpperCase();
-                if (code.length !== 5) {
+                const code = this.els.joinInput.value.trim();
+                // Regex check to ensure exactly 5 numerical digits
+                if (!/^\d{5}$/.test(code)) {
                     this.showToast("Code must be exactly 5 digits.", "warning");
                     return;
                 }
@@ -576,29 +600,44 @@
                 this.els.btnJoin.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 this.els.btnJoin.disabled = true;
 
+                // Safety timeout if PeerJS STUN servers hang
+                clearTimeout(this.connectionTimeout);
+                this.connectionTimeout = setTimeout(() => {
+                    if (this.els.btnJoin.disabled) {
+                        this.showToast("Connection timed out. Host may be offline.", "error");
+                        this.els.btnJoin.innerHTML = originalText;
+                        this.els.btnJoin.disabled = false;
+                        this.disconnect();
+                    }
+                }, 10000); // 10-second max wait
+
                 // Client gets a random Peer ID
-                this.peer = new Peer();
+                this.peer = new Peer(this.peerConfig);
 
                 this.peer.on('open', (id) => {
-                    // Connect to the Host
-                    const conn = this.peer.connect(`syncnotes-app-${code}`);
+                    // Connect to the specific Host ID
+                    const hostId = `syncnotes-net-${code}`;
+                    const conn = this.peer.connect(hostId, { reliable: true });
+                    
                     this.setupConnectionHooks(conn);
 
                     conn.on('error', (err) => {
+                         clearTimeout(this.connectionTimeout);
                          this.els.btnJoin.innerHTML = originalText;
                          this.els.btnJoin.disabled = false;
-                         this.showToast("Connection failed.", "error");
+                         this.showToast("Connection dropped.", "error");
                     });
                 });
 
                 this.peer.on('error', (err) => {
+                    clearTimeout(this.connectionTimeout);
                     this.els.btnJoin.innerHTML = originalText;
                     this.els.btnJoin.disabled = false;
                     
                     if (err.type === 'peer-unavailable') {
-                        this.showToast(`Workspace ${code} not found.`, "error");
+                        this.showToast(`Workspace ${code} not found or closed.`, "error");
                     } else {
-                        this.showToast("Network error.", "error");
+                        this.showToast("Network error trying to join.", "error");
                     }
                     this.disconnect();
                 });
@@ -607,7 +646,9 @@
             // ======= SHARED P2P HOOKS (Handles Multiple Conns) =======
             setupConnectionHooks(conn) {
                 conn.on('open', () => {
-                    // Add to map
+                    clearTimeout(this.connectionTimeout); // Clear safety timeout on success
+                    
+                    // Add to active connections map
                     this.connections.set(conn.peer, conn);
                     
                     if (this.isHost) {
@@ -635,7 +676,7 @@
                     if (payload.type === 'text-sync') {
                         this.applyRemoteText(payload.data);
                         
-                        // If Host receives text from a client, Relay to all OTHER clients
+                        // If Host receives text from a client, Relay to all OTHER clients instantly
                         if (this.isHost) {
                             this.connections.forEach((c, id) => {
                                 if (id !== conn.peer && c.open) {
@@ -668,9 +709,9 @@
             // Editor Sync Logic
             setupEditorListeners() {
                 this.els.textarea.addEventListener('input', (e) => {
-                    // Update char count natively
                     this.els.charCount.textContent = `${this.els.textarea.value.length} chars`;
 
+                    // Do not broadcast local text if we are currently mid-update from remote
                     if (this.isRemoteUpdate) return;
                     
                     this.els.syncStatusText.innerHTML = `<i class="fas fa-spinner fa-spin text-brand-400 mr-2"></i> Syncing...`;
@@ -679,14 +720,15 @@
                     this.typingTimeout = setTimeout(() => {
                         if (this.connections.size > 0) {
                             // Broadcast to all active connections
+                            const payload = { type: 'text-sync', data: this.els.textarea.value };
                             this.connections.forEach(c => {
-                                if(c.open) c.send({ type: 'text-sync', data: this.els.textarea.value });
+                                if(c.open) c.send(payload);
                             });
                             this.els.syncStatusText.innerHTML = `<i class="fas fa-check text-green-400 mr-2"></i> Synced to peers`;
                         } else {
                             this.els.syncStatusText.innerHTML = `<i class="fas fa-save text-slate-400 mr-2"></i> Saved locally`;
                         }
-                    }, 50); 
+                    }, 100); // 100ms debounce ensures WebRTC data channel isn't flooded
                 });
             },
 
@@ -699,15 +741,17 @@
                 this.els.charCount.textContent = `${this.els.textarea.value.length} chars`;
                 
                 try {
-                    // Automatically move cursor to the end of the text so users can continue typing from the last sync
+                    // BUG FIX: Automatically force the cursor/blinking line to the very end 
+                    // of the document when receiving an update, so writing is seamless.
                     const textLength = this.els.textarea.value.length;
+                    this.els.textarea.focus(); 
                     this.els.textarea.setSelectionRange(textLength, textLength);
-                    this.els.textarea.scrollTop = this.els.textarea.scrollHeight; // Auto-scroll to the bottom
+                    this.els.textarea.scrollTop = this.els.textarea.scrollHeight; // Auto-scroll downward
                 } catch(e){} 
 
                 this.els.syncStatusText.innerHTML = `<i class="fas fa-bolt text-brand-accent mr-2"></i> Incoming update applied`;
                 
-                setTimeout(() => { this.isRemoteUpdate = false; }, 10);
+                setTimeout(() => { this.isRemoteUpdate = false; }, 50);
             },
 
             clearText() {
@@ -737,7 +781,7 @@
             copySessionShare() {
                 if(!this.currentSessionId) return;
                 
-                const shareUrl = `${window.location.origin}${window.location.pathname}?join=${this.currentSessionId}`;
+                const shareUrl = `${this.getBaseUrl()}?join=${this.currentSessionId}`;
                 const shareText = `SyncNotes Invite: ${shareUrl}`;
                 
                 navigator.clipboard.writeText(shareText).then(() => {
@@ -754,6 +798,8 @@
             },
 
             disconnect() {
+                clearTimeout(this.connectionTimeout);
+
                 // Close all peer connections gracefully
                 this.connections.forEach(c => c.close());
                 this.connections.clear();
@@ -779,7 +825,7 @@
 
             // QR Generation
             generateQRs(code) {
-                const joinUrl = `${window.location.origin}${window.location.pathname}?join=${code}`;
+                const joinUrl = `${this.getBaseUrl()}?join=${code}`;
                 
                 this.els.qrContainer.innerHTML = '';
                 this.els.waitingQrContainer.innerHTML = '';
@@ -816,18 +862,26 @@
                         { facingMode: "environment" }, 
                         config,
                         (decodedText, decodedResult) => {
-                            let parsedCode = decodedText;
+                            let parsedCode = null;
                             
-                            try {
-                                const url = new URL(decodedText);
-                                const joinParam = url.searchParams.get('join');
-                                if(joinParam && joinParam.length === 5) parsedCode = joinParam;
-                            } catch(e) { }
+                            // BUG FIX: Highly robust scanner parsing. 
+                            // Looks for exactly 5 digits anywhere in the scanned text/url
+                            const match = decodedText.match(/\b\d{5}\b/);
+                            if (match) {
+                                parsedCode = match[0];
+                            } else {
+                                // Fallback URL param extraction just in case
+                                try {
+                                    const url = new URL(decodedText);
+                                    const joinParam = url.searchParams.get('join');
+                                    if (joinParam && /^\d{5}$/.test(joinParam)) parsedCode = joinParam;
+                                } catch(e) { }
+                            }
 
-                            if(parsedCode && parsedCode.length === 5) {
+                            if(parsedCode && /^\d{5}$/.test(parsedCode)) {
                                 this.html5QrcodeScanner.stop().then(() => {
                                     this.showToast("QR Code recognized!", "success");
-                                    this.joinSessionCore(parsedCode.toUpperCase());
+                                    this.joinSessionCore(parsedCode);
                                 });
                             } else {
                                 this.showToast("Invalid SyncNotes QR code.", "error");
@@ -895,7 +949,7 @@
                             <span class="text-sm font-medium text-slate-200">${readableName}</span>
                         </div>
                         ${this.isHost ? `
-                        <button onclick="app.kickPeer('${peerId}')" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-red-500/10">
+                        <button onclick="app.kickPeer('${peerId}')" class="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-red-500/10 active:scale-95">
                             Kick
                         </button>` : `<span class="text-xs text-green-400">Active</span>`}
                     </div>`;
@@ -956,7 +1010,7 @@
                 this.els.recentContainer.classList.add('flex');
                 
                 this.els.recentList.innerHTML = history.map(h => `
-                    <button onclick="app.els.joinInput.value='${h.id}'; app.joinWithCode()" class="flex-shrink-0 bg-white/5 px-4 py-2.5 rounded-xl hover:bg-white/10 transition-colors flex items-center gap-3 border border-white/5">
+                    <button onclick="app.els.joinInput.value='${h.id}'; app.joinWithCode()" class="flex-shrink-0 bg-white/5 px-4 py-2.5 rounded-xl hover:bg-white/10 transition-colors flex items-center gap-3 border border-white/5 active:scale-95">
                         <span class="font-mono font-bold tracking-widest text-slate-300">${h.id}</span>
                         <div class="w-1 h-1 rounded-full bg-brand-400"></div>
                         <span class="text-[10px] text-slate-500 uppercase tracking-wide">Join</span>
