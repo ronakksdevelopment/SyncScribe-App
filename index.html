@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SyncScribe | Real-Time Cross-Device Text</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- HTML5 QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <!-- Tailwind Config for Custom Colors/Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            400: '#22d3ee', // Cyan
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            purple: '#a855f7'
+                        }
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: #22d3ee;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(34, 211, 238, 0.5);
+        }
+
+        /* View Transitions */
+        .view-section {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+        }
+        .view-section.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* Scanner overrides */
+        #qr-reader {
+            border: none !important;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        #qr-reader video {
+            border-radius: 1rem;
+            object-fit: cover;
+        }
+        #qr-reader__scan_region {
+            background: rgba(0,0,0,0.5);
+        }
+
+        /* Animated Background Orbs */
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.5;
+        }
+        .orb-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: #312e81; animation: blob 15s infinite alternate; }
+        .orb-2 { bottom: -10%; right: -10%; width: 40vw; height: 40vw; background: #083344; animation: blob 12s infinite alternate-reverse; }
+        .orb-3 { top: 40%; left: 40%; width: 30vw; height: 30vw; background: #4c1d95; animation: blob 18s infinite alternate; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Background Animations -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+        <div class="bg-orb orb-1"></div>
+        <div class="bg-orb orb-2"></div>
+        <div class="bg-orb orb-3"></div>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none">
+        <div class="glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-brand-500/50">
+            <i id="toast-icon" class="fas fa-info-circle text-brand-400"></i>
+            <span id="toast-message" class="text-sm font-medium tracking-wide">Notification</span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="w-full p-6 flex justify-between items-center z-10 animate-fade-in">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="app.navigate('home')">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-purple flex items-center justify-center shadow-lg shadow-brand-500/30">
+                <i class="fas fa-sync-alt text-white text-lg"></i>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Sync<span class="text-brand-400">Scribe</span></h1>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div id="connection-status" class="hidden items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm">
+                <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                <span class="opacity-80">Connected</span>
+            </div>
+            <button onclick="app.showSettings()" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-colors">
+                <i class="fas fa-cog text-gray-400 hover:text-white transition-colors"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-4 z-10 w-full max-w-6xl mx-auto">
+        
+        <!-- View: HOME (Join or Create) -->
+        <section id="view-home" class="view-section active flex-col items-center w-full max-w-4xl gap-8 animate-slide-up">
+            <div class="text-center mb-4">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">Seamless Text Sync</h2>
+                <p class="text-gray-400 text-lg max-w-xl mx-auto">Connect your PC and Android instantly. Type, copy, and paste text in real-time across devices with zero friction.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                <!-- Create Session Card -->
+                <div class="glass-panel rounded-3xl p-8 flex flex-col items-center text-center group hover:-translate-y-1 transition-transform duration-300">
+                    <div class="w-16 h-16 rounded-2xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-plus"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold mb-2">New Session</h3>
+                    <p class="text-gray-400 mb-8 text-sm">Generate a code and QR to start sharing text from this device.</p>
+                    <button onclick="app.createSession()" class="mt-auto w-full py-4 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-white font-semibold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all transform hover:scale-[1.02]">
+                        Start Syncing
+                    </button>
+                </div>
+
+                <!-- Join Session Card -->
+                <div class="glass-panel rounded-3xl p-8 flex flex-col items-center text-center group hover:-translate-y-1 transition-transform duration-300">
+                    <div class="w-16 h-16 rounded-2xl bg-brand-purple/20 text-brand-purple flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold mb-2">Join Session</h3>
+                    <p class="text-gray-400 mb-6 text-sm">Enter a code or scan a QR code from another device.</p>
+                    
+                    <div class="w-full flex flex-col gap-3 mt-auto">
+                        <div class="relative w-full">
+                            <input type="text" id="join-code-input" placeholder="Enter 6-digit code" maxlength="6" class="w-full glass-input py-4 pl-6 pr-12 rounded-xl text-center font-mono text-xl tracking-[0.2em] uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-sm">
+                            <button onclick="app.joinWithCode()" class="absolute right-2 top-2 bottom-2 aspect-square rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-3 w-full my-1">
+                            <div class="h-px bg-white/10 flex-grow"></div>
+                            <span class="text-xs text-gray-500 font-medium uppercase">or</span>
+                            <div class="h-px bg-white/10 flex-grow"></div>
+                        </div>
+                        <button onclick="app.openScanner()" class="w-full py-4 rounded-xl glass-panel border border-brand-purple/30 text-brand-purple hover:bg-brand-purple/10 font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-qrcode"></i> Scan QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sessions -->
+            <div id="recent-sessions-container" class="w-full hidden flex-col gap-4 mt-8">
+                <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider pl-2">Recent Connections</h4>
+                <div id="recent-sessions-list" class="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- View: SCANNER -->
+        <section id="view-scanner" class="view-section flex-col items-center w-full max-w-md animate-slide-up">
+            <div class="glass-panel rounded-3xl p-6 w-full flex flex-col items-center relative overflow-hidden">
+                <button onclick="app.closeScanner()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 z-10">
+                    <i class="fas fa-times"></i>
+                </button>
+                <h3 class="text-xl font-semibold mb-6 flex items-center gap-2"><i class="fas fa-camera text-brand-400"></i> Scan to Link</h3>
+                
+                <div id="qr-reader" class="w-full aspect-square bg-black/50 rounded-2xl overflow-hidden shadow-inner mb-6 relative">
+                    <!-- Scanner injects here -->
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-48 h-48 border-2 border-brand-400/50 rounded-xl"></div>
+                    </div>
+                </div>
+                
+                <p class="text-sm text-gray-400 text-center">Point your camera at the QR code displayed on the host device.</p>
+            </div>
+        </section>
+
+        <!-- View: EDITOR / SESSION -->
+        <section id="view-editor" class="view-section flex-col w-full h-[80vh] max-h-[800px] animate-slide-up">
+            <div class="glass-panel rounded-3xl flex flex-col w-full h-full overflow-hidden shadow-2xl border-white/10 relative">
+                
+                <!-- Editor Header -->
+                <div class="w-full bg-black/20 border-b border-white/5 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-brand-500/20 border border-brand-500/30 px-4 py-2 rounded-xl flex items-center gap-3">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Code:</span>
+                            <span id="display-session-code" class="font-mono text-xl font-bold tracking-widest text-brand-400">------</span>
+                            <button onclick="app.copySessionCode()" class="ml-2 text-gray-400 hover:text-white transition-colors" title="Copy Code">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- QR Code Trigger (Desktop/Host mainly) -->
+                        <button onclick="app.toggleEditorQR()" class="w-10 h-10 rounded-xl glass-panel flex items-center justify-center text-brand-purple hover:bg-white/10 transition-colors" title="Show QR Code">
+                            <i class="fas fa-qrcode"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <button onclick="app.clearText()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
+                        <button onclick="app.copyText()" class="px-4 py-2 rounded-lg text-sm font-medium text-brand-400 hover:bg-brand-400/10 transition-colors flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-copy"></i> Copy Text
+                        </button>
+                        <button onclick="app.disconnect()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-2 whitespace-nowrap border border-red-500/20 ml-auto sm:ml-0">
+                            <i class="fas fa-power-off"></i> Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Floating QR Overlay -->
+                <div id="editor-qr-overlay" class="absolute top-20 left-4 z-20 hidden">
+                    <div class="glass-panel rounded-2xl p-4 shadow-2xl border-brand-purple/30 animate-fade-in flex flex-col items-center">
+                        <div id="editor-qrcode" class="bg-white p-2 rounded-xl"></div>
+                        <span class="text-xs text-gray-400 mt-3 font-medium">Scan to join</span>
+                    </div>
+                </div>
+
+                <!-- Text Area -->
+                <textarea id="sync-textarea" class="w-full flex-grow bg-transparent text-gray-100 p-6 sm:p-8 resize-none focus:outline-none text-lg leading-relaxed placeholder:text-gray-600 font-sans custom-scrollbar" placeholder="Type or paste anything here... It will sync instantly to connected devices."></textarea>
+                
+                <!-- Typing indicator -->
+                <div class="h-8 px-6 flex items-center bg-black/10 text-xs text-brand-400/70 font-medium tracking-wide border-t border-white/5">
+                    <span id="sync-status-text"><i class="fas fa-cloud-upload-alt mr-2"></i> Synced securely to cloud</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: SETTINGS / FIREBASE FALLBACK -->
+        <section id="view-settings" class="view-section flex-col items-center w-full max-w-lg animate-slide-up">
+             <div class="glass-panel rounded-3xl p-8 w-full flex flex-col relative">
+                <button onclick="app.navigate('home')" class="absolute top-6 right-6 text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                <h3 class="text-2xl font-bold mb-2">Developer Settings</h3>
+                <p class="text-sm text-gray-400 mb-6">Manage local data and backend configuration.</p>
+
+                <div class="space-y-6">
+                    <div class="p-4 rounded-xl bg-black/20 border border-white/5">
+                        <h4 class="font-semibold mb-2 flex items-center gap-2"><i class="fas fa-history text-brand-400"></i> Local Storage</h4>
+                        <p class="text-xs text-gray-500 mb-4">Clear locally saved session history and preferences.</p>
+                        <button onclick="app.clearHistory()" class="px-4 py-2 rounded-lg text-sm bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors w-full">
+                            Clear Browser History
+                        </button>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-black/20 border border-brand-purple/20">
+                        <h4 class="font-semibold mb-2 flex items-center gap-2"><i class="fas fa-database text-brand-purple"></i> Custom Firebase Config</h4>
+                        <p class="text-xs text-gray-400 mb-4">If hosting this externally (e.g., GitHub Pages), paste your Firebase JSON configuration below to enable real-time sync.</p>
+                        <textarea id="custom-fb-config" rows="6" class="w-full glass-input rounded-xl p-3 text-xs font-mono mb-3" placeholder='{ "apiKey": "...", "projectId": "..." }'></textarea>
+                        <button onclick="app.saveCustomFirebase()" class="px-4 py-2 rounded-lg text-sm bg-brand-purple/20 text-brand-purple hover:bg-brand-purple/30 border border-brand-purple/50 transition-colors w-full font-semibold">
+                            Save & Reload
+                        </button>
+                    </div>
+                </div>
+             </div>
+        </section>
+
+    </main>
+
+    <!-- Firebase SDK Setup -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Application Logic Encapsulation
+        const app = {
+            db: null,
+            auth: null,
+            appId: typeof __app_id !== 'undefined' ? __app_id : 'syncscribe-standalone',
+            currentUser: null,
+            currentSessionId: null,
+            unsubscribeSnapshot: null,
+            html5QrcodeScanner: null,
+            qrCodeInstance: null,
+            isLocalUpdate: false,
+            typingTimeout: null,
+
+            // DOM Elements
+            els: {
+                views: document.querySelectorAll('.view-section'),
+                toast: document.getElementById('toast'),
+                toastIcon: document.getElementById('toast-icon'),
+                toastMsg: document.getElementById('toast-message'),
+                joinInput: document.getElementById('join-code-input'),
+                displayCode: document.getElementById('display-session-code'),
+                textarea: document.getElementById('sync-textarea'),
+                connStatus: document.getElementById('connection-status'),
+                qrOverlay: document.getElementById('editor-qr-overlay'),
+                qrContainer: document.getElementById('editor-qrcode'),
+                recentList: document.getElementById('recent-sessions-list'),
+                recentContainer: document.getElementById('recent-sessions-container'),
+                customFbInput: document.getElementById('custom-fb-config'),
+                syncStatusText: document.getElementById('sync-status-text')
+            },
+
+            // Initialization
+            async init() {
+                this.bindGlobal();
+                this.loadHistory();
+                await this.initFirebase();
+                this.setupEditorListeners();
+            },
+
+            // Make methods globally accessible for HTML inline onclick
+            bindGlobal() {
+                window.app = this;
+            },
+
+            // UI Navigation
+            navigate(viewId) {
+                this.els.views.forEach(v => {
+                    v.classList.remove('active');
+                    setTimeout(() => v.style.display = 'none', 400); // Wait for fade out
+                });
+                
+                setTimeout(() => {
+                    const target = document.getElementById(`view-${viewId}`);
+                    target.style.display = 'flex';
+                    // Trigger reflow
+                    void target.offsetWidth;
+                    target.classList.add('active');
+                }, 400);
+
+                if (viewId !== 'scanner' && this.html5QrcodeScanner) {
+                    this.closeScanner();
+                }
+                if (viewId !== 'editor') {
+                    this.els.connStatus.classList.add('hidden');
+                    this.els.connStatus.classList.remove('flex');
+                    this.els.qrOverlay.classList.add('hidden');
+                } else {
+                    this.els.connStatus.classList.add('flex');
+                    this.els.connStatus.classList.remove('hidden');
+                }
+            },
+
+            showSettings() {
+                const customConfig = localStorage.getItem('syncScribe_fbConfig');
+                if(customConfig) this.els.customFbInput.value = customConfig;
+                this.navigate('settings');
+            },
+
+            // Firebase Initialization
+            async initFirebase() {
+                let fbConfig = null;
+                
+                // 1. Try injected config (Canvas environment)
+                try {
+                    if (typeof __firebase_config !== 'undefined') {
+                        fbConfig = JSON.parse(__firebase_config);
+                    }
+                } catch(e) { console.warn("Failed to parse injected firebase config"); }
+
+                // 2. Try user-provided config from localStorage
+                if (!fbConfig) {
+                    try {
+                        const localCfg = localStorage.getItem('syncScribe_fbConfig');
+                        if (localCfg) fbConfig = JSON.parse(localCfg);
+                    } catch(e) {}
+                }
+
+                if (!fbConfig) {
+                    this.showToast("No database config found. Real-time sync disabled.", "warning");
+                    this.els.textarea.disabled = true;
+                    this.els.textarea.placeholder = "Database not connected. Please go to Settings and add Firebase config if hosting externally.";
+                    return;
+                }
+
+                try {
+                    const fbApp = initializeApp(fbConfig);
+                    this.auth = getAuth(fbApp);
+                    this.db = getFirestore(fbApp);
+
+                    // Authentication (Rule 3)
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(this.auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(this.auth);
+                    }
+
+                    onAuthStateChanged(this.auth, (user) => {
+                        this.currentUser = user;
+                        if(user) {
+                            this.els.textarea.disabled = false;
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Firebase init error:", error);
+                    this.showToast("Connection failed. Check configuration.", "error");
+                }
+            },
+
+            // Session Management
+            generateCode() {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars like I, O, 0, 1
+                let result = '';
+                for (let i = 0; i < 6; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            },
+
+            getDocRef(sessionId) {
+                if (!this.currentUser) return null;
+                // Rule 1: Strict Paths
+                return doc(this.db, 'artifacts', this.appId, 'public', 'data', 'sessions', sessionId);
+            },
+
+            async createSession() {
+                if (!this.currentUser) {
+                    this.showToast("Waiting for authentication...", "warning");
+                    return;
+                }
+                const newCode = this.generateCode();
+                
+                try {
+                    const ref = this.getDocRef(newCode);
+                    await setDoc(ref, {
+                        text: "",
+                        host: this.currentUser.uid,
+                        createdAt: serverTimestamp(),
+                        lastUpdated: serverTimestamp()
+                    });
+                    
+                    this.saveToHistory(newCode);
+                    this.joinSessionCore(newCode);
+                    this.showToast("Session created successfully!", "success");
+                    
+                } catch (error) {
+                    console.error("Create session error:", error);
+                    this.showToast("Failed to create session.", "error");
+                }
+            },
+
+            joinWithCode() {
+                const code = this.els.joinInput.value.trim().toUpperCase();
+                if (code.length !== 6) {
+                    this.showToast("Please enter a valid 6-character code.", "error");
+                    return;
+                }
+                this.joinSessionCore(code);
+            },
+
+            joinSessionCore(sessionId) {
+                if (!this.currentUser) return;
+                
+                if (this.unsubscribeSnapshot) {
+                    this.unsubscribeSnapshot();
+                }
+
+                this.currentSessionId = sessionId;
+                this.els.displayCode.textContent = sessionId;
+                this.generateQR(sessionId);
+                this.saveToHistory(sessionId);
+                
+                const ref = this.getDocRef(sessionId);
+                
+                // Real-time listener
+                this.unsubscribeSnapshot = onSnapshot(ref, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        
+                        // Smart merge to prevent cursor jumping
+                        if (!this.isLocalUpdate) {
+                            const currentVal = this.els.textarea.value;
+                            if (currentVal !== data.text) {
+                                // Save cursor
+                                const start = this.els.textarea.selectionStart;
+                                const end = this.els.textarea.selectionEnd;
+                                
+                                this.els.textarea.value = data.text || "";
+                                
+                                // Restore cursor gracefully
+                                try {
+                                    this.els.textarea.setSelectionRange(start, end);
+                                } catch(e){} // Ignore if lost focus
+                            }
+                        }
+                        this.els.syncStatusText.innerHTML = `<i class="fas fa-check-double text-green-400 mr-2"></i> Synced`;
+                    } else {
+                        // Document doesn't exist, create it (lazy creation for joiners)
+                        setDoc(ref, { text: this.els.textarea.value, lastUpdated: serverTimestamp() });
+                    }
+                }, (error) => {
+                    console.error("Sync error:", error);
+                    this.showToast("Connection lost.", "error");
+                });
+
+                this.els.joinInput.value = '';
+                this.navigate('editor');
+            },
+
+            // Editor Logic
+            setupEditorListeners() {
+                this.els.textarea.addEventListener('input', (e) => {
+                    this.isLocalUpdate = true;
+                    this.els.syncStatusText.innerHTML = `<i class="fas fa-spinner fa-spin text-brand-400 mr-2"></i> Syncing...`;
+                    
+                    clearTimeout(this.typingTimeout);
+                    
+                    // Debounce writes to Firestore
+                    this.typingTimeout = setTimeout(async () => {
+                        if (this.currentSessionId && this.currentUser) {
+                            try {
+                                const ref = this.getDocRef(this.currentSessionId);
+                                await setDoc(ref, { 
+                                    text: this.els.textarea.value,
+                                    lastUpdated: serverTimestamp()
+                                }, { merge: true });
+                            } catch (error) {
+                                console.error("Write error:", error);
+                            }
+                        }
+                        this.isLocalUpdate = false;
+                        this.els.syncStatusText.innerHTML = `<i class="fas fa-check-double text-green-400 mr-2"></i> Synced`;
+                    }, 300); // 300ms debounce
+                });
+            },
+
+            clearText() {
+                this.els.textarea.value = '';
+                // Trigger input event to sync clearing
+                this.els.textarea.dispatchEvent(new Event('input'));
+            },
+
+            copyText() {
+                if (!this.els.textarea.value) {
+                    this.showToast("Nothing to copy!", "warning");
+                    return;
+                }
+                navigator.clipboard.writeText(this.els.textarea.value).then(() => {
+                    this.showToast("Text copied to clipboard!", "success");
+                }).catch(() => {
+                    // Fallback
+                    const textArea = document.createElement("textarea");
+                    textArea.value = this.els.textarea.value;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand("copy");
+                    textArea.remove();
+                    this.showToast("Text copied to clipboard!", "success");
+                });
+            },
+
+            copySessionCode() {
+                if(!this.currentSessionId) return;
+                navigator.clipboard.writeText(this.currentSessionId).then(() => {
+                    this.showToast("Code copied!", "success");
+                }).catch(() => {
+                     document.execCommand("copy");
+                     this.showToast("Code copied!", "success");
+                });
+            },
+
+            disconnect() {
+                if (this.unsubscribeSnapshot) {
+                    this.unsubscribeSnapshot();
+                    this.unsubscribeSnapshot = null;
+                }
+                this.currentSessionId = null;
+                this.els.textarea.value = '';
+                this.navigate('home');
+                this.showToast("Disconnected securely.", "success");
+            },
+
+            // QR Generation
+            generateQR(text) {
+                this.els.qrContainer.innerHTML = '';
+                this.qrCodeInstance = new QRCode(this.els.qrContainer, {
+                    text: text,
+                    width: 150,
+                    height: 150,
+                    colorDark : "#0f172a", // Dark background for high contrast
+                    colorLight : "#ffffff", // Pure white for scanners
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            },
+
+            toggleEditorQR() {
+                this.els.qrOverlay.classList.toggle('hidden');
+            },
+
+            // QR Scanner
+            openScanner() {
+                this.navigate('scanner');
+                
+                // Small delay to allow CSS transitions to complete before mounting camera
+                setTimeout(() => {
+                    if (this.html5QrcodeScanner == null) {
+                        this.html5QrcodeScanner = new Html5Qrcode("qr-reader");
+                    }
+                    
+                    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+                    
+                    this.html5QrcodeScanner.start(
+                        { facingMode: "environment" }, 
+                        config,
+                        (decodedText, decodedResult) => {
+                            // On Success
+                            if(decodedText && decodedText.length === 6) {
+                                this.html5QrcodeScanner.stop().then(() => {
+                                    this.showToast("QR Scanned successfully!", "success");
+                                    this.joinSessionCore(decodedText);
+                                });
+                            } else {
+                                this.showToast("Invalid SyncScribe QR code.", "error");
+                            }
+                        },
+                        (errorMessage) => {
+                            // ignoring background errors
+                        }
+                    ).catch((err) => {
+                        console.error("Camera error:", err);
+                        this.showToast("Camera access denied or unavailable.", "error");
+                        this.navigate('home');
+                    });
+                }, 400);
+            },
+
+            closeScanner() {
+                if (this.html5QrcodeScanner) {
+                    this.html5QrcodeScanner.stop().then(() => {
+                        this.navigate('home');
+                    }).catch(err => {
+                        this.navigate('home');
+                    });
+                } else {
+                    this.navigate('home');
+                }
+            },
+
+            // Local History
+            saveToHistory(sessionId) {
+                let history = [];
+                try {
+                    const stored = localStorage.getItem('syncScribe_history');
+                    if (stored) history = JSON.parse(stored);
+                } catch(e) {}
+                
+                // Remove if exists to move to front
+                history = history.filter(h => h.id !== sessionId);
+                
+                history.unshift({ id: sessionId, time: Date.now() });
+                
+                // Keep only last 5
+                if (history.length > 5) history.pop();
+                
+                localStorage.setItem('syncScribe_history', JSON.stringify(history));
+                this.renderHistory();
+            },
+
+            loadHistory() {
+                this.renderHistory();
+            },
+
+            renderHistory() {
+                let history = [];
+                try {
+                    const stored = localStorage.getItem('syncScribe_history');
+                    if (stored) history = JSON.parse(stored);
+                } catch(e) {}
+
+                if (history.length === 0) {
+                    this.els.recentContainer.classList.add('hidden');
+                    return;
+                }
+
+                this.els.recentContainer.classList.remove('hidden');
+                this.els.recentContainer.classList.add('flex');
+                
+                this.els.recentList.innerHTML = history.map(h => `
+                    <button onclick="app.joinSessionCore('${h.id}')" class="flex-shrink-0 glass-panel px-5 py-3 rounded-xl hover:bg-white/10 transition-colors flex flex-col items-start gap-1 group border border-white/5 hover:border-brand-400/50">
+                        <span class="font-mono font-bold tracking-widest text-white group-hover:text-brand-400 transition-colors">${h.id}</span>
+                        <span class="text-[10px] text-gray-500 uppercase">${new Date(h.time).toLocaleDateString()}</span>
+                    </button>
+                `).join('');
+            },
+
+            clearHistory() {
+                localStorage.removeItem('syncScribe_history');
+                this.renderHistory();
+                this.showToast("History cleared", "success");
+            },
+
+            saveCustomFirebase() {
+                const val = this.els.customFbInput.value.trim();
+                if(!val) {
+                    localStorage.removeItem('syncScribe_fbConfig');
+                    this.showToast("Custom config cleared. Reloading...", "success");
+                    setTimeout(() => window.location.reload(), 1000);
+                    return;
+                }
+
+                try {
+                    JSON.parse(val); // Validate JSON
+                    localStorage.setItem('syncScribe_fbConfig', val);
+                    this.showToast("Config saved! Reloading application...", "success");
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch(e) {
+                    this.showToast("Invalid JSON format.", "error");
+                }
+            },
+
+            // Utilities
+            showToast(message, type = 'info') {
+                this.els.toastMsg.textContent = message;
+                
+                // Style based on type
+                this.els.toast.className = `fixed top-5 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 opacity-100 translate-y-0 pointer-events-none`;
+                
+                if (type === 'success') {
+                    this.els.toastIcon.className = 'fas fa-check-circle text-green-400';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-green-500/50';
+                } else if (type === 'error') {
+                    this.els.toastIcon.className = 'fas fa-exclamation-circle text-red-400';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-red-500/50';
+                } else if (type === 'warning') {
+                    this.els.toastIcon.className = 'fas fa-exclamation-triangle text-yellow-400';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-yellow-500/50';
+                } else {
+                    this.els.toastIcon.className = 'fas fa-info-circle text-brand-400';
+                    this.els.toast.firstElementChild.className = 'glass-panel px-6 py-3 rounded-full flex items-center gap-3 shadow-lg border-brand-500/50';
+                }
+
+                setTimeout(() => {
+                    this.els.toast.classList.remove('opacity-100', 'translate-y-0');
+                    this.els.toast.classList.add('opacity-0', 'translate-y-[-20px]');
+                }, 3000);
+            }
+        };
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+            
+            // Allow hitting "Enter" on the join code input
+            document.getElementById('join-code-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    app.joinWithCode();
+                }
+            });
+
+            // Close QR overlay when clicking outside in editor
+            document.addEventListener('click', (e) => {
+                const overlay = document.getElementById('editor-qr-overlay');
+                const trigger = document.querySelector('[title="Show QR Code"]');
+                if (!overlay.classList.contains('hidden') && 
+                    !overlay.contains(e.target) && 
+                    !trigger.contains(e.target)) {
+                    overlay.classList.add('hidden');
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>
